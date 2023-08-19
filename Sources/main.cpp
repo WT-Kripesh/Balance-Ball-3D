@@ -1,22 +1,14 @@
 #include "main.h"
 
 unsigned int ID;
-#define GL_CLAMP_TO_EDGE 0x812F
 
-const int window_width = 1000;
-const int window_height = 700;
+const int window_width = 1000,window_height = 650;
 
-GLfloat eyeX = 0;
-GLfloat eyeY = 40;
-GLfloat eyeZ = 100;
+GLfloat eyeX ,eyeY ,eyeZ ,lookX ,lookY,lookZ;
 
-GLfloat lookX = 0;
-GLfloat lookY = 40;
-GLfloat lookZ = -1000;
-
-float wall_w = 40, wall_h = 1, wall_l = 120;
+float wall_w = 40, wall_h = 4, wall_l = 120;
 int doorl_open = 1, doorr_open = 1, dooru_open=1;
-float doorlx = -wall_w/4, doorrx = wall_w/4, dooru_y=wall_w/4+10;
+float doorlx = -wall_w/2, doorrx = wall_w/2, dooru_y=wall_w/4+10;
 
 int up=0,down=0,r=0,l=0;
 float ballx=0, bally=7, ballz=70;
@@ -28,7 +20,7 @@ float spot_x1=0, spot_y1=145, spot_z1=70;
 float spot_x2=52, spot_y2=40, spot_z2=-126;
 
 
-float obsx=wall_l-wall_w, obsy=0.0, obsz=-(wall_l+wall_w);
+float obsx=wall_l-wall_w, obsy=10.0, obsz=-(wall_l+wall_w);
 
 bool anglex_rot = true, ball_rotate=true;
 float rotate_b=0;
@@ -37,28 +29,16 @@ int ball_pos[10] = {0};
 
 float rot = 0;
 
-bool ball_y_inc = true;
-bool ball_y_dec = false;
-bool jump_for = false;
-bool jump_back = false;
-bool jump_left = false;
-bool jump_right = false;
+bool ball_y_inc = true,ball_y_dec = false,jump_for = false,jump_back = false,jump_left = false,jump_right = false;
 
 int cnt, process=0;
 clock_t start,en_d,now;
 string t;
+GLint in=8,out=9;
 
 static GLfloat v_cube[8][3] =
 {
-    {0,0,0},
-    {0,0,1},
-    {0,1,0},
-    {0,1,1},
-
-    {1,0,0},
-    {1,0,1},
-    {1,1,0},
-    {1,1,1}
+    {0,0,0},{0,0,1},{0,1,0},{0,1,1},{1,0,0},{1,0,1},{1,1,0},{1,1,1}
 };
 
 static GLubyte c_ind[6][4] =
@@ -127,13 +107,13 @@ void LoadTexture(const char*filename, int rep = 1)
     gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, bl.iWidth, bl.iHeight, GL_RGB, GL_UNSIGNED_BYTE, bl.textureData );
 }
 
-void material_property(float colR=0.5, float colG=0.5, float colB=0.5, float emission=false, float shine=60)
+void material_property(float colR=0.5, float colG=0.5, float colB=0.5, bool emission=false, float shine=10)
 {
     GLfloat no_mat[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat mat_ambient[] = { colR*0.5, colG*0.5, colB*0.5, 1.0 };
+    GLfloat mat_ambient[] = { colR, colG, colB, 1.0 };
     GLfloat mat_diffuse[] = { colR, colG, colB, 1.0 };
-    GLfloat mat_emission[] = {colR*0.5, colG*0.5, colB*0.5, 1.0};
-    GLfloat mat_specular[] = { 1, 1, 1, 1.0 };
+    GLfloat mat_emission[] = {colR, colG, colB, 1.0};
+    GLfloat mat_specular[] = { 1, 1, 1, 1 };
     GLfloat mat_shininess[] = {shine};
 
     glMaterialfv( GL_FRONT, GL_AMBIENT, mat_ambient);
@@ -144,27 +124,11 @@ void material_property(float colR=0.5, float colG=0.5, float colB=0.5, float emi
 
     if(emission)
         glMaterialfv( GL_FRONT, GL_EMISSION, mat_emission);
-
 }
 
-void cube(float colR=0.5, float colG=0.5, float colB=0.5, bool e = false, float alpha = 1)
+void cube(float colR=0.5, float colG=0.5, float colB=0.5, bool e = false, float shine = 1)
 {
-
-    GLfloat no_mat[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat mat_ambient[] = { colR, colG, colB, 1.0 };
-    GLfloat mat_diffuse[] = { colR, colG, colB, 1.0 };
-    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat mat_emission[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat mat_shininess[] = {30};
-
-    glMaterialfv( GL_FRONT, GL_AMBIENT, mat_ambient);
-    glMaterialfv( GL_FRONT, GL_DIFFUSE, mat_diffuse);
-    glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular);
-    glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess);
-
-    glMaterialfv( GL_FRONT, GL_EMISSION, no_mat);
-
-    if(e == true) glMaterialfv(GL_FRONT, GL_EMISSION, mat_emission);
+    material_property(colR, colG, colB,e, shine);
 
     glBegin(GL_QUADS);
     for (GLint i = 0; i <6; i++)
@@ -182,160 +146,24 @@ void cube(float colR=0.5, float colG=0.5, float colB=0.5, bool e = false, float 
         glTexCoord2f(5,0);
         glVertex3fv(&v_cube[c_ind[i][3]][0]);
 
-//        for (GLint j=0; j<4; j++)
-//        {
-//            glVertex3fv(&v_cube[c_ind[i][j]][0]);
-//        }
     }
     glEnd();
 }
 
-void light(float x=0, float y=50, float z=0)
+
+void ball_initialize()
 {
-//    ambient = true, diffuse = true, specular = true;
-
-    GLfloat no_light[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat light_ambient[]  = {0.1, 0.1, 0.1, 1.0};
-    GLfloat light_diffuse[]  = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat light_pos[] = { x,y,z,0};
-    glEnable(GL_LIGHT0);
-
-    if(light_1 && ambient) glLightfv( GL_LIGHT0, GL_AMBIENT, light_ambient);
-    else glLightfv( GL_LIGHT0, GL_AMBIENT, no_light);
-    if(light_1 && diffuse) glLightfv( GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-    else glLightfv( GL_LIGHT0, GL_DIFFUSE, no_light);
-    if(light_1 && specular) glLightfv( GL_LIGHT0, GL_SPECULAR, light_specular);
-    else glLightfv( GL_LIGHT0, GL_SPECULAR, no_light);
-
-    glLightfv( GL_LIGHT0, GL_POSITION, light_pos);
-
+        ballx=0;bally=7;ballz=70;
+        eyeX = 0;eyeY = 40;eyeZ = 100;
+        lookX = 0;lookY = 40;lookZ = -1000;
 }
-
-void spot_light(float x, float y, float z)
-{
-//    ambient = true, diffuse = true, specular = true;
-
-    GLfloat no_light[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat light_ambient[]  = {0.5, 0, 0, 1.0};
-    GLfloat light_diffuse[]  = { 1, 0, 0, 1.0 };
-    GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat light_pos[] = { x, y, z,1};
-    glEnable(GL_LIGHT2);
-
-    if(light_3 && ambient) glLightfv( GL_LIGHT2, GL_AMBIENT, light_ambient);
-    else glLightfv( GL_LIGHT2, GL_AMBIENT, no_light);
-    if(light_3 && diffuse) glLightfv( GL_LIGHT2, GL_DIFFUSE, light_diffuse);
-    else glLightfv( GL_LIGHT2, GL_DIFFUSE, no_light);
-    if(light_3 && specular) glLightfv( GL_LIGHT2, GL_SPECULAR, light_specular);
-    else glLightfv( GL_LIGHT2, GL_SPECULAR, no_light);
-
-    glLightfv( GL_LIGHT2, GL_POSITION, light_pos);
-
-    GLfloat direction[] = {0,-1,0,1};
-    GLfloat cut_off = 20.0;
-    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, direction );
-    glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, cut_off );
-
-}
-
-void spot_light1(float x, float y, float z)
-{
-//    ambient = true, diffuse = true, specular = true;
-
-    GLfloat no_light[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat light_ambient[]  = {0.5, 0.5, 0, 1.0};
-    GLfloat light_diffuse[]  = { 1, 0, 0, 1.0 };
-    GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat light_pos[] = { x, y, z, 1};
-    glEnable(GL_LIGHT3);
-
-    if(light_4 && ambient) glLightfv( GL_LIGHT3, GL_AMBIENT, light_ambient);
-    else glLightfv( GL_LIGHT3, GL_AMBIENT, no_light);
-    if(light_4 && diffuse) glLightfv( GL_LIGHT3, GL_DIFFUSE, light_diffuse);
-    else glLightfv( GL_LIGHT3, GL_DIFFUSE, no_light);
-    if(light_4 && specular) glLightfv( GL_LIGHT3, GL_SPECULAR, light_specular);
-    else glLightfv( GL_LIGHT3, GL_SPECULAR, no_light);
-
-    glLightfv( GL_LIGHT3, GL_POSITION, light_pos);
-
-    GLfloat direction[] = {0,-1,0,1};
-    GLfloat cut_off = 50.0;
-    glLightfv(GL_LIGHT3, GL_SPOT_DIRECTION, direction );
-    glLightf(GL_LIGHT3, GL_SPOT_CUTOFF, cut_off );
-}
-
-void spot_light2(float x, float y, float z)
-{
-//    ambient = true, diffuse = true, specular = true;
-
-    GLfloat no_light[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat light_ambient[]  = {0.5, 0, 0, 1.0};
-    GLfloat light_diffuse[]  = { 1, 1, 0, 1.0 };
-    GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat light_pos[] = { x, y, z, 1};
-    glEnable(GL_LIGHT1);
-
-    if(light_2 && ambient) glLightfv( GL_LIGHT1, GL_AMBIENT, light_ambient);
-    else glLightfv( GL_LIGHT1, GL_AMBIENT, no_light);
-    if(light_2 && diffuse) glLightfv( GL_LIGHT1, GL_DIFFUSE, light_diffuse);
-    else glLightfv( GL_LIGHT1, GL_DIFFUSE, no_light);
-    if(light_2 && specular) glLightfv( GL_LIGHT1, GL_SPECULAR, light_specular);
-    else glLightfv( GL_LIGHT1, GL_SPECULAR, no_light);
-
-    glLightfv( GL_LIGHT1, GL_POSITION, light_pos);
-
-    GLfloat direction[] = {0,-1,0,1};
-    GLfloat cut_off = 30.0;
-    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, direction );
-    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, cut_off );
-}
-
 void door_touch()
 {
     if((((doorlx-10 <= ballx-7 && ballx-7 <= doorlx+10) ||(doorlx-10 <= ballx+7 && ballx+7 <= doorlx+10)) ||
             ((doorrx-10 <= ballx-7 && ballx-7 <= doorrx+10) || (doorrx-10 <= ballx+7 && ballx+7 <= doorrx+10))) && ballz > -6 && ballz < 6)
-    {
-        ballx=0;
-        bally=7;
-        ballz=70;
-        eyeX = 0;
-        eyeY = 40;
-        eyeZ = 100;
-        lookX = 0;
-        lookY = 40;
-        lookZ = -1000;
-    }
-    if(dooru_y<33 && ballz>-65 && ballz<-50)
-    {
-        ballx=0;
-        bally=7;
-        ballz=70;
-        eyeX = 0;
-        eyeY = 40;
-        eyeZ = 100;
-        lookX = 0;
-        lookY = 40;
-        lookZ = -1000;
-    }
-    if(bally<9 && ballz>-167 && ballz<-165)
-    {
-        ballx=0;
-        bally=7;
-        ballz=70;
-        eyeX = 0;
-        eyeY = 40;
-        eyeZ = 100;
-        lookX = 0;
-        lookY = 40;
-        lookZ = -1000;
-    }
-//    if(ballz <= -153 && ballz >= -157 && bally < 9)
-//    {
-//        ballx=0; bally=7; ballz=70;
-//        eyeX = 0; eyeY = 40; eyeZ = 100;
-//        lookX = 0; lookY = 40; lookZ = -1000;
-//    }
+        ball_initialize();
+    else if((dooru_y<33 && ballz>-65 && ballz<-50) || (bally<9 && ballz>-167 && ballz<-165))
+        ball_initialize();
 }
 
 void position_detect(float width, float len, int bridge_no, float cen_x=0, float cen_z=0)
@@ -345,18 +173,10 @@ void position_detect(float width, float len, int bridge_no, float cen_x=0, float
     bool fr = (ballz)>=(-len/2+cen_z);
     bool ba = (ballz)<=(len/2+cen_z);
     if(left && right && fr && ba)
-    {
-        //cout<<"ok"<<endl;
-        //ok
         ball_pos[bridge_no] = 1;
-    }
 
     else
-    {
-        //cout<<"no"<<endl;
-        //game-over
         ball_pos[bridge_no] = 0;
-    }
 }
 
 void update(int value)
@@ -365,165 +185,53 @@ void update(int value)
     {
         doorlx -= 0.2;
         if(doorlx<-30)
-        {
             doorl_open=0;
-        }
     }
-    if (!doorl_open)
+    else
     {
         doorlx += 0.2;
         if(doorlx>-10)
-        {
             doorl_open=1;
-        }
     }
     if(doorr_open)
     {
         doorrx += 0.2;
         if(doorrx>30)
-        {
             doorr_open=0;
-        }
     }
-    if (!doorr_open)
+    else
     {
         doorrx -= 0.2;
         if(doorrx<10)
-        {
             doorr_open=1;
-        }
     }
 
     if(dooru_open)
     {
         dooru_y += 0.2;
-//        cout << "dooru_y: "<<dooru_y<<endl;
         if(dooru_y>60)
-        {
             dooru_open=0;
-        }
     }
     if (!dooru_open)
     {
         dooru_y -= 0.2;
-//        cout << "dooru_y: "<<dooru_y<<endl;
         if(dooru_y<20)
-        {
             dooru_open=1;
-        }
-    }
-
-    //if(anglex_rot)
-    {
-      //  anglex = ( anglex + 3 ) % 360;
     }
 
     glutPostRedisplay(); //Tell GLUT that the display has changed
-
     //Tell GLUT to call update again in 25 milliseconds
     glutTimerFunc(25, update, 0);
 }
 
-void axes()
-{
-    float length = 10;
-    float width = 0.3;
 
-    // X-axis
-    glPushMatrix();
-    glTranslatef(length/2,0,0);
-    glScalef(length,width,width);
-    glTranslatef(-0.5,-0.5,-0.5);
-    cube(1,0,0); //RED Line
-    glPopMatrix();
-
-    // Y-axis
-    glPushMatrix();
-    glTranslatef(0,length/2,0);
-    glScalef(width,length,width);
-    glTranslatef(-0.5,-0.5,-0.5);
-    cube(0,1,0); //GREEN Line
-    glPopMatrix();
-
-    // Z-axis
-    glPushMatrix();
-    glTranslatef(0,0,length/2);
-    glScalef(width,width,length);
-    glTranslatef(-0.5,-0.5,-0.5);
-    cube(0,0,1); //BLUE Line
-    glPopMatrix();
-}
-
-void curve_object(float curveX=-40.0, float curveY=25.0, float curveZ=110.0, float colR=1.0, float colG=1.0, float colB=0.0)
-{
-
-    GLfloat no_mat[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat mat_ambient[] = { colR, colG, colB, 1.0 };
-    GLfloat mat_diffuse[] = { colR, colG, colB, 1.0 };
-    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat mat_emission[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat mat_shininess[] = {30};
-
-    glMaterialfv( GL_FRONT, GL_AMBIENT, mat_ambient);
-    glMaterialfv( GL_FRONT, GL_DIFFUSE, mat_diffuse);
-    glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular);
-    glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess);
-
-    glMaterialfv( GL_FRONT, GL_EMISSION, no_mat);
-
-    glPushMatrix();
-    material_property(1,1,0);
-    glRotatef( 90, 0.0, 0.0, 1.0);
-//    glRotatef( anglex, 0.0, 0.0, 1.0);
-//    glRotatef( anglex, 0.0, 0.0, 1.0);
-//    glRotatef( angley, 0.0, 1.0, 0.0);
-//    glRotatef( anglez, 1.0, 0.0, 0.0);
-    glTranslatef(curveX, curveY, curveZ);
-    glScalef(30, 50, 50);
-    glTranslatef(-0.5, -0.5, -0.5);
-//    bottleBezier(0,20,40,20);
-    glPopMatrix();
-    /*glPushMatrix();
-    material_property(1,0,0);
-    glTranslatef(-10,0,0);
-    glRotatef(90,0,1,0);
-    bottleBezier(29,34,40,20);
-    glPopMatrix();*/
-}
-
-void curve_gate()
-{
-    for(int i=1; i<=12; i+=2)
-    {
-        glPushMatrix();
-        material_property(1,0,0);
-        glTranslatef(0,0,9+i);
-        glRotatef(90,0,1,0);
-        //bottleBezier(21,28,40,20);
-        glPopMatrix();
-    }
-    for(int i=1; i<=12; i+=2)
-    {
-        glPushMatrix();
-        material_property(1,0,0);
-        glTranslatef(0,0,-276+i);
-        glRotatef(90,0,1,0);
-        //bottleBezier(21,28,40,20);
-        glPopMatrix();
-    }
-}
-
-void sphere(double r,double g,double b)
+void ball(double r=1,double g=1,double b=1)
 {
     GLfloat no_mat[] = { 0.0, 0.0, 0.0, 1.0 };
-    GLfloat mat_ambient[] = { 0.5*r, 0.5*g, 0.5*b, 1.0 };
-    GLfloat mat_diffuse[] = { r, g, b, 1.0 };
-    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat mat_shininess[] = {60};
-    GLfloat mat_emission[] = {0.3*r, 0.2*g, 0.2*b, 1.0};
+    GLfloat mat_diffuse[] = { 1, 1, 1, 1.0 };
+    GLfloat mat_specular[] = { 0.5, 0.5, 0.5, 1.0 };
+    GLfloat mat_shininess[] = {100};
 
-    glMaterialfv(GL_FRONT, GL_EMISSION, mat_emission);
-    glMaterialfv( GL_FRONT, GL_AMBIENT, mat_ambient);
     glMaterialfv( GL_FRONT, GL_DIFFUSE, mat_diffuse);
     glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular);
     glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess);
@@ -532,22 +240,18 @@ void sphere(double r,double g,double b)
     glEnable(GL_TEXTURE_GEN_T);
 
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 7);
+    glBindTexture(GL_TEXTURE_2D,7);
 
     glPushMatrix();
     glTranslatef(ballx,bally,ballz);
     glutSolidSphere (7, 50, 50);
+
     glPopMatrix();
 
     glDisable(GL_TEXTURE_2D);
 
-    glDisable(GL_TEXTURE_GEN_S); //enable texture coordinate generation
+    glDisable(GL_TEXTURE_GEN_S);
     glDisable(GL_TEXTURE_GEN_T);
-}
-
-void ball()
-{
-    sphere(0.5,1,0.7);
 }
 
 void ball_jump()
@@ -557,10 +261,9 @@ void ball_jump()
         if(ball_y_inc)
         {
             bally +=0.5;
-            ballz -=0.125;
-            eyeZ -=0.125;
-            lookZ -=0.125;
-//            cout << "bally: "<<bally<<endl;
+            ballz -=0.15;
+            eyeZ -=0.15;
+            lookZ -=0.15;
             if(bally>=30)
             {
                 ball_y_inc = false;
@@ -570,10 +273,9 @@ void ball_jump()
         else if(ball_y_dec)
         {
             bally -=0.5;
-            ballz -=0.125;
-            eyeZ -=0.125;
-            lookZ -=0.125;
-//            cout << "bally: "<<bally<<endl;
+            ballz -=0.15;
+            eyeZ -=0.15;
+            lookZ -=0.15;
             if(bally==0)
             {
                 ball_y_inc = true;
@@ -588,9 +290,9 @@ void ball_jump()
         if(ball_y_inc)
         {
             bally +=0.5;
-            ballz +=0.125;
-            eyeZ +=0.125;
-            lookZ +=0.125;
+            ballz +=0.15;
+            eyeZ +=0.15;
+            lookZ +=0.15;
             if(bally>=30)
             {
                 ball_y_inc = false;
@@ -600,9 +302,9 @@ void ball_jump()
         else if(ball_y_dec)
         {
             bally -=0.5;
-            ballz +=0.125;
-            eyeZ +=0.125;
-            lookZ +=0.125;
+            ballz +=0.15;
+            eyeZ +=0.15;
+            lookZ +=0.15;
             if(bally==0)
             {
                 ball_y_inc = true;
@@ -616,9 +318,9 @@ void ball_jump()
         if(ball_y_inc)
         {
             bally +=0.5;
-            ballx -=0.125;
-            eyeX -=0.125;
-            lookX -=0.125;
+            ballx -=0.135;
+            eyeX -=0.135;
+            lookX -=0.135;
             if(bally>=30)
             {
                 ball_y_inc = false;
@@ -628,9 +330,9 @@ void ball_jump()
         else if(ball_y_dec)
         {
             bally -=0.5;
-            ballx -=0.125;
-            eyeX -=0.125;
-            lookX -=0.125;
+            ballx -=0.135;
+            eyeX -=0.135;
+            lookX -=0.135;
             if(bally==0)
             {
                 ball_y_inc = true;
@@ -644,9 +346,9 @@ void ball_jump()
         if(ball_y_inc)
         {
             bally +=0.5;
-            ballx +=0.125;
-            eyeX +=0.125;
-            lookX +=0.125;
+            ballx +=0.135;
+            eyeX +=0.135;
+            lookX +=0.135;
             if(bally>=30)
             {
                 ball_y_inc = false;
@@ -656,9 +358,9 @@ void ball_jump()
         else if(ball_y_dec)
         {
             bally -=0.5;
-            ballx +=0.125;
-            eyeX +=0.125;
-            lookX +=0.125;
+            ballx +=0.135;
+            eyeX +=0.135;
+            lookX +=0.135;
             if(bally==0)
             {
                 ball_y_inc = true;
@@ -670,41 +372,21 @@ void ball_jump()
     glutPostRedisplay();
 }
 
-void lamp()
-{
-    float wall_w = 40, wall_h = 1, wall_l = 120;
-    float lamp_w = 4, lamp_h = 50, lamp_l = 1;
-
-    glPushMatrix();
-    glTranslatef(0, lamp_h/2, -(wall_l/2+wall_w-lamp_l/2));
-    glScalef(lamp_w, lamp_h, lamp_l);
-    glTranslatef(-0.5, -0.5, -0.5);
-    cube(1, 1, 1);
-    glPopMatrix();
-
-    glPushMatrix();
-    glTranslatef(0, lamp_h/2, -(wall_l/2+wall_w-lamp_l/2));
-    glScalef(lamp_w, lamp_h, lamp_l);
-    glTranslatef(-0.5, -0.5, -0.5);
-    cube(1, 1, 1);
-    glPopMatrix();
-}
-
 void obstacle()
 {
-    material_property(1,1,1);
+    material_property(1,0.9,0);
     glTranslatef(obsx, obsy, obsz);
-    glScalef(1,2.5,1);
+    glScalef(1,2,1);
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 11);
+    glBindTexture(GL_TEXTURE_2D,2);//11-steel
     glPushMatrix();
     glBegin(GL_TRIANGLES);
     glTexCoord2f(0.5,1);
-    glVertex3f(-16,8,0);
+    glVertex3f(-14,8,0);
     glTexCoord2f(0,0);
-    glVertex3f(-20,0,0);
+    glVertex3f(-16,0,0);
     glTexCoord2f(1,0);
-    glVertex3f(-12,0,0);
+    glVertex3f(-10,0,0);
 
     glTexCoord2f(0.5,1);
     glVertex3f(-8,8,0);
@@ -728,11 +410,11 @@ void obstacle()
     glVertex3f(12,0,0);
 
     glTexCoord2f(0.5,1);
-    glVertex3f(16,8,0);
+    glVertex3f(13,8,0);
     glTexCoord2f(0,0);
-    glVertex3f(12,0,0);
+    glVertex3f(10,0,0);
     glTexCoord2f(1,0);
-    glVertex3f(20,0,0);
+    glVertex3f(16,0,0);
 
     glEnd();
     glPopMatrix();
@@ -741,10 +423,8 @@ void obstacle()
 
 void bridge()
 {
-    axes();
-
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 4);
+    glBindTexture(GL_TEXTURE_2D, 4); //4-home
     // square
     glPushMatrix();
     position_detect(wall_w, wall_w, 7, 0, -(wall_l*2+wall_w*2+wall_l/2+wall_w/2));
@@ -756,7 +436,7 @@ void bridge()
     glDisable(GL_TEXTURE_2D);
 
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D,1);
+    glBindTexture(GL_TEXTURE_2D,1); //1-wood
 
     // straight
     glPushMatrix();
@@ -812,7 +492,7 @@ void bridge()
     glTranslatef(0, 0, wall_l/2+wall_w/2);
     glScalef(wall_w, wall_h, wall_w);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(1.000, 1.000, 0.941);
+    cube(1.0,1.0,1.0);
     glPopMatrix();
     glDisable(GL_TEXTURE_2D);
 }
@@ -827,7 +507,7 @@ void door()
     glTranslatef(doorrx, wall_w/4+10, 0);
     glScalef(wall_w/2, wall_w/2+20, 1);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.753, 0.753, 0.753);
+    cube(0.7,0.7,0.7);
     glPopMatrix();
 
     //left
@@ -835,7 +515,7 @@ void door()
     glTranslatef(doorlx, wall_w/4+10, 0);
     glScalef(wall_w/2, wall_w/2+20, 1);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.753, 0.753, 0.753);
+    cube(0.7,0.7,0.7);
     glPopMatrix();
     glPopMatrix();
     glDisable(GL_TEXTURE_2D);
@@ -847,8 +527,7 @@ void door()
     glTranslatef(0, dooru_y, -(wall_w/4+50));
     glScalef(wall_w, wall_w/2+20, 1);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.545, 0.000, 0.000);
-    glPopMatrix();
+    cube(0.7,0.7,0.7);
     glPopMatrix();
     glDisable(GL_TEXTURE_2D);
 }
@@ -862,7 +541,7 @@ void scene()
     glTranslatef(0, 90, -450);
     glScalef(400, 200, 1);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.690, 0.769, 0.871);
+    cube(1,1,1);
     glPopMatrix();
 
     //back
@@ -870,7 +549,7 @@ void scene()
     glTranslatef(0, 90, 150);
     glScalef(400, 200, 1);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.690, 0.769, 0.871);
+    cube(1,1,1);
     glPopMatrix();
 
     //right
@@ -878,7 +557,7 @@ void scene()
     glTranslatef(200, 90, -350);
     glScalef(1, 200, 1000);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.690, 0.769, 0.871);
+    cube(1,1,1);
     glPopMatrix();
 
     //left
@@ -886,7 +565,7 @@ void scene()
     glTranslatef(-200, 90, -350);
     glScalef(1, 200, 1000);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.690, 0.769, 0.871);
+    cube(1,1,1);
     glPopMatrix();
 
     //up
@@ -894,17 +573,12 @@ void scene()
     glTranslatef(0, 190, -350);
     glScalef(400, 1, 1000);
     glTranslatef(-0.5, -0.5, -0.5);
-    cube(0.690, 0.769, 0.871);
+    cube(1,1,1);
     glPopMatrix();
     glDisable(GL_TEXTURE_2D);
 
-    //down
-
-//    glTranslatef(0, 190, -350);
-//    glScalef(400, 1, 1000);
-    // middle
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 2);
+    glBindTexture(GL_TEXTURE_2D, in);
 
     glPushMatrix();
     glTranslatef(40, -10, -150);
@@ -917,7 +591,7 @@ void scene()
 
     // left
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 10);
+    glBindTexture(GL_TEXTURE_2D, out);
 
     glPushMatrix();
     glTranslatef(-120, -10, -150);
@@ -930,7 +604,7 @@ void scene()
 
     // right
     glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 10);
+    glBindTexture(GL_TEXTURE_2D, out);
 
     glPushMatrix();
     glTranslatef(160, -10, -150);
@@ -940,43 +614,6 @@ void scene()
     glPopMatrix();
 
     glDisable(GL_TEXTURE_2D);
-
-//    glEnable(GL_TEXTURE_2D);
-//    glBindTexture(GL_TEXTURE_2D, 2);
-//
-//    glPushMatrix();
-//    glTranslatef(0, -10, 50);
-//    glScalef(400, 1, 200);
-//    glTranslatef(-0.5, -0.5, -0.5);
-//    cube(1, 0, 1);
-//    glPopMatrix();
-//
-//    glDisable(GL_TEXTURE_2D);
-
-//    glEnable(GL_TEXTURE_2D);
-//    glBindTexture(GL_TEXTURE_2D, 2);
-//
-//    glPushMatrix();
-//    glTranslatef(0, -10, -150);
-//    glScalef(400, 1, 200);
-//    glTranslatef(-0.5, -0.5, -0.5);
-//    cube(1, 0, 1);
-//    glPopMatrix();
-//
-//    glDisable(GL_TEXTURE_2D);
-
-//    glEnable(GL_TEXTURE_2D);
-//    glBindTexture(GL_TEXTURE_2D, 2);
-//
-//    glPushMatrix();
-//    glTranslatef(0, -10, -350);
-//    glScalef(400, 1, 200);
-//    glTranslatef(-0.5, -0.5, -0.5);
-//    cube(1, 0, 1);
-//    glPopMatrix();
-//
-//    glDisable(GL_TEXTURE_2D);
-
 }
 
 void idle()
@@ -1012,13 +649,7 @@ void game_over()
     }
     if(status<=0)
     {
-//        cout<<"game_over"<<endl;
-//        glutDestroyWindow(58);
         process = 3;
-    }
-    else
-    {
-//        cout<<"game_ok"<<endl;
     }
 }
 
@@ -1028,11 +659,8 @@ void Text(char *str,int x,int y,int z)
     glTranslatef(x, y, z);
     glScalef(0.04,0.04,0.04);
     material_property(1,1,1, true);
-//    glRasterPos3f(x,y,z);
     for (int i = 0; i < strlen(str); i++)
-    {
         glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN,str[i]);
-    }
     glPopMatrix();
 }
 
@@ -1040,63 +668,21 @@ static void display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_PROJECTION);
-    //glGetDoublev( GL_PROJECTION_MATRIX, projection );
     glLoadIdentity();
     int lim = 8;
     glFrustum(-lim, lim, -lim, lim, 2, 1000);
 
     glMatrixMode(GL_MODELVIEW);
-    //glGetDoublev( GL_MODELVIEW_MATRIX, modelview );
     glLoadIdentity();
 
     gluLookAt(eyeX,eyeY,eyeZ, lookX,lookY,lookZ, 0,1,0);
-    glRotatef(rot, 0,1,0);
-    //axes();
-
-    glPushMatrix();
-    light();
-    glPopMatrix();
-
-    glPushMatrix();
-    spot_light(spot_x1, spot_y1, spot_z1);
-    glPopMatrix();
-
-    glPushMatrix();
-    spot_light1(spot_x2, spot_y2, spot_z2);
-    glPopMatrix();
-
-    glPushMatrix();
-    spot_light2(0, 145, -329);
-    glPopMatrix();
-
-    glPushMatrix();
 
     glPushMatrix();
     obstacle();
     glPopMatrix();
 
     glPushMatrix();
-    curve_gate();
-    glPopMatrix();
-
-    glPushMatrix();
-    curve_object(40, 23.5, -329);
-    glPopMatrix();
-
-    glPushMatrix();
-    curve_object(40, -52, -126);
-    glPopMatrix();
-
-    glPushMatrix();
-    curve_object(40.0, 25.0, 110.0);
-    glPopMatrix();
-
-    glPushMatrix();
     scene();
-    glPopMatrix();
-
-    glPushMatrix();
-    lamp();
     glPopMatrix();
 
     glPushMatrix();
@@ -1108,7 +694,6 @@ static void display(void)
     glPopMatrix();
 
     glPushMatrix();
-//    glScalef(1, 1, 0.5);
     ball();
     glPopMatrix();
 
@@ -1162,9 +747,7 @@ void output(char *str,int x,int y,int z)
 
     gluLookAt(0,40,100, 0,40,-1000, 0,1,0);
 
-    //material_property(1,1,0, true);
     glPushMatrix();
-    //glColor3f(1,0,0);
     glRasterPos3f(x,y,z);
     for (int i = 0; i < strlen(str); i++)
     {
@@ -1177,8 +760,8 @@ void output(char *str,int x,int y,int z)
     GLUquadricObj *start_ball = gluNewQuadric();
     glEnable(GL_TEXTURE_2D);
     gluQuadricTexture(start_ball, true);
-    glBindTexture(GL_TEXTURE_2D,12);
-    glRotatef(rotate_b,0,1,0);
+    glBindTexture(GL_TEXTURE_2D,11);
+    glRotatef(rotate_b,0.02,1,0);
     glTranslatef(0,120,0);
     glScalef(5,5,5);
     gluSphere(start_ball,5,50,50);
@@ -1250,61 +833,20 @@ void func()
     else if (process==3) End();
 }
 
-static void key(unsigned char key, int x, int y)
+void key1(int x,int y,int z)
 {
-    switch (key)
-    {
-    case 13:
-        process=2;
-        start=clock();
-        break;
-    case 'n':
-        ballx=0;
-        bally=7;
-        ballz=70;
-        eyeX = 0;
-        eyeY = 40;
-        eyeZ = 100;
-        lookX = 0;
-        lookY = 40;
-        lookZ = -1000;
-        process=2;
-        start=clock();
-        break;
-    case 'q':
-        exit(0);
-        break;
-    case 'u':
-        eyeY++;
-        lookY++;
-        break;
-    case 'e':
-        eyeY--;
-        lookY--;
-        break;
-    case 'r':
-        rot--;
-        break;
-    case 't':
-        rot++;
-        break;
-    case 'l':
-        eyeX++;
-        lookX++;
-        break;
-    case 'j':
+    switch(x){
+    case GLUT_KEY_LEFT:
+        ballx -=1;
         eyeX--;
         lookX--;
         break;
-    case 'i':
-        eyeZ--;
+    case GLUT_KEY_RIGHT:
+        ballx +=1;
+        eyeX++;
+        lookX++;
         break;
-    case 'k':
-        eyeZ++;
-        break;
-
-    case 'w':
-//        cout<<"ballz: "<<ballz<<endl;
+    case GLUT_KEY_UP:
         if(ballz >= -420)
         {
             ballz -=1;
@@ -1312,80 +854,83 @@ static void key(unsigned char key, int x, int y)
             lookZ--;
         }
         break;
-    case 's':
+    case GLUT_KEY_DOWN:
         ballz +=1;
         eyeZ++;
         lookZ++;
         break;
-    case 'a':
-        ballx -=1;
-        eyeX--;
-        lookX--;
-//        cout<<"ballx: "<<ballx<<endl;
+    }
+    glutPostRedisplay();
+}
+static void key(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case 13:    //13=ASCII of Enter key
+        ball_initialize();
+        process=2;
+        start=clock();
         break;
-    case 'd':
-        ballx +=1;
+    case 'n':
+        ball_initialize();
+        process=2;
+        start=clock();
+        break;
+    case 'q':
+        exit(0);
+        break;
+    case 'u':   //up
+        eyeY++;
+        lookY++;
+        break;
+    case 'h':   //down
+        eyeY--;
+        lookY--;
+        break;
+    case 'p':   //move right
         eyeX++;
         lookX++;
-
         break;
-    case 'p':
+    case 'o':   //move left
+        eyeX--;
+        lookX--;
+        break;
+    case '9':   //zoom in
+        eyeZ--;
+        break;
+    case '0':   //zoom out
+        eyeZ++;
+        break;
+    case 'j':
         jump_left = true;
         break;
-    case 'o':
+    case 'l':
         jump_right = true;
         break;
-    case 'm':
+    case 'i':
         jump_for = true;
         break;
-    case '-':
+    case 'k':
         jump_back = true;
         break;
+    case 'm':
+        if(in==8){
+            in=2;out=10;
+        }
+        else if(in==2){
+            in=8;out=9;
+        }
+        break;
+    }
 
-    case '1':
-    {
-        light_1 = 1-light_1;
-        ambient = true, diffuse = true, specular = true;
-    }
-    break;
-    case '2':
-    {
-        light_2 = 1-light_2;
-        ambient = true, diffuse = true, specular = true;
-    }
-    break;
-    case '3':
-    {
-        light_3 = 1-light_3;
-        ambient = true, diffuse = true, specular = true;
-    }
-    break;
-    case '7':
-    {
-        light_4 = 1-light_4;
-        ambient = true, diffuse = true, specular = true;
-    }
-    break;
-
-    case 'c':
-        ambient = 1 - ambient;
-        break;
-    case 'v':
-        diffuse = 1 - diffuse;
-        break;
-    case 'b':
-        specular = 1 - specular;
-        break;
-    }
     glutPostRedisplay();
 }
 
 void instructions()
 {
-    cout << "##	INSTRUCTIONS	##\n\nPress\n\n - 'q' to quit\n - 'u' to up\n - 'h' to down\n - 'r' to rotate right\n - 't' to rotate left\n - 'p' to move right\n - 'o' to move left\n - '1' to zoom in\n - '0' to zoom out\n";
-    cout << "\n - 'w' for ball front\n - 's' for ball back\n - 'a' for ball left\n - 'd' for ball right\n";
-    cout << "\n - 'i' for jump front\n - 'k' for jump back\n - 'j' for jump left\n - 'l' for jump right\n"
-    cout << "\n - '1' for toggling light\n j";
+    cout << "##	INSTRUCTIONS	##\n\nPress\n\n - 'q' to quit\n - 'u' to up\n - 'h' to down\n  - '9' to zoom in\n - '0' to zoom out\n";
+    cout << "\n - up key for ball front\n - down key for ball back\n - left key for ball left\n - right key for ball right\n";
+    cout << "\n - 'i' for jump front\n - 'k' for jump back\n - 'j' for jump left\n - 'l' for jump right\n";
 }
 
 int main(int argc, char *argv[])
@@ -1401,45 +946,25 @@ int main(int argc, char *argv[])
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\lava_n.bmp",2);
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\finish.bmp",3);
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\start.bmp",4);
-    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\sk2.bmp",5);
-    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\grass.bmp",6);
-    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\star.bmp",7);
+    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\sk.bmp",0);
+    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\volcano.bmp",6);
+    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\ball.bmp",7);
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\water.bmp",8);
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\grass.bmp",9);
-    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\sk2.bmp",10);
+    LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\sand.bmp",10);
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\steel.bmp",11);
     LoadTexture("C:\\Users\\User\\OneDrive\\Desktop\\Newfolder\\Projects\\Balance\\Images\\steel.bmp",12);
 
-    light();
     glutDisplayFunc(func);
     glutKeyboardFunc(key);
+    glutSpecialFunc(key1);
     glutIdleFunc(idle);
 
     glEnable(GL_DEPTH_TEST);
-    glShadeModel( GL_SMOOTH );
+    glShadeModel(GL_SMOOTH);
     glEnable(GL_NORMALIZE);
-    glEnable(GL_LIGHTING);
 
     glutTimerFunc(25, update, 0);
     glutMainLoop();
     return EXIT_SUCCESS;
 }
-/* - 'q' to quit
- - 'u' to up
- - 'e' to down
- - 'r' to rotate right
- - 't' to rotate left
- - 'l' to move right
- - 'j' to move left
- - 'i' to zoom in
- - 'k' to zoom out
-
- - 'w' for ball front
- - 's' for ball back
- - 'a' for ball left
- - 'd' for ball right
- - up key for jump front
- - down key for jump back
- - left key for jump left
- - right key for jump right
- - '1' for toggling light*/
